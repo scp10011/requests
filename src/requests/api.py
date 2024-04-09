@@ -35,6 +35,8 @@ def request(method, url, **kwargs):
     :type timeout: float or tuple
     :param allow_redirects: (optional) Boolean. Enable/disable GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD redirection. Defaults to ``True``.
     :type allow_redirects: bool
+    :param hsts: (optional) Boolean. Maintain HTTPS redirection. Defaults to ``False``.
+    :type hsts: bool
     :param proxies: (optional) Dictionary mapping protocol to the URL of the proxy.
     :param verify: (optional) Either a boolean, in which case it controls whether we verify
             the server's TLS certificate, or a string, in which case it must be a path

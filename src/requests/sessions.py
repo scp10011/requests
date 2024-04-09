@@ -166,6 +166,7 @@ class SessionRedirectMixin:
         cert=None,
         proxies=None,
         yield_requests=False,
+        hsts=False,
         **adapter_kwargs,
     ):
         """Receives a Response. Returns a generator of Responses or Requests."""
@@ -199,7 +200,13 @@ class SessionRedirectMixin:
             if url.startswith("//"):
                 parsed_rurl = urlparse(resp.url)
                 url = ":".join([to_native_string(parsed_rurl.scheme), url])
-
+            if hsts:
+                current_url = urlparse(resp.url)
+                next_hop_url = urlparse(url)
+                current_protocol = to_native_string(current_url.scheme)
+                next_hop_protocol = to_native_string(next_hop_url.scheme)
+                if current_protocol == "https" and next_hop_protocol == "http":
+                    url = url.replace("http://", "https://", 1)
             # Normalize url case and attach previous fragment if needed (RFC 7231 7.1.2)
             parsed = urlparse(url)
             if parsed.fragment == "" and previous_fragment:
@@ -515,6 +522,7 @@ class Session(SessionRedirectMixin):
         verify=None,
         cert=None,
         json=None,
+        hsts=False,
     ):
         """Constructs a :class:`Request <Request>`, prepares it and sends it.
         Returns :class:`Response <Response>` object.
@@ -541,6 +549,8 @@ class Session(SessionRedirectMixin):
         :type timeout: float or tuple
         :param allow_redirects: (optional) Set to True by default.
         :type allow_redirects: bool
+        :param hsts: (optional) Set to True by default.
+        :type hsts: bool
         :param proxies: (optional) Dictionary mapping protocol or protocol and
             hostname to the URL of the proxy.
         :param hooks: (optional) Dictionary mapping hook name to one event or
@@ -584,6 +594,7 @@ class Session(SessionRedirectMixin):
         send_kwargs = {
             "timeout": timeout,
             "allow_redirects": allow_redirects,
+            "hsts": hsts,
         }
         send_kwargs.update(settings)
         resp = self.send(prep, **send_kwargs)
@@ -690,6 +701,7 @@ class Session(SessionRedirectMixin):
 
         # Set up variables needed for resolve_redirects and dispatching of hooks
         allow_redirects = kwargs.pop("allow_redirects", True)
+        hsts = kwargs.pop("hsts", False)
         stream = kwargs.get("stream")
         hooks = request.hooks
 
@@ -720,7 +732,7 @@ class Session(SessionRedirectMixin):
         # Resolve redirects if allowed.
         if allow_redirects:
             # Redirect resolving generator.
-            gen = self.resolve_redirects(r, request, **kwargs)
+            gen = self.resolve_redirects(r, request, hsts=hsts, **kwargs)
             history = [resp for resp in gen]
         else:
             history = []
@@ -737,7 +749,7 @@ class Session(SessionRedirectMixin):
         if not allow_redirects:
             try:
                 r._next = next(
-                    self.resolve_redirects(r, request, yield_requests=True, **kwargs)
+                    self.resolve_redirects(r, request, hsts=hsts, yield_requests=True, **kwargs)
                 )
             except StopIteration:
                 pass
